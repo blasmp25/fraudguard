@@ -1,4 +1,5 @@
 # FraudGuard
+[![tests](https://github.com/blasmp25/fraudguard/actions/workflows/tests.yml/badge.svg)](https://github.com/blasmp25/fraudguard/actions/workflows/tests.yml)
 
 **End-to-end ML platform for imbalanced fraud detection, real-time inference, model monitoring and automated retraining.**
 
