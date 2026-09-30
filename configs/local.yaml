@@ -1,0 +1,9 @@
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+
+split:
+  train_end_day: 120
+  valid_end_day: 150
+
+seed: 42
