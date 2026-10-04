@@ -7,3 +7,7 @@ split:
   valid_end_day: 150
 
 seed: 42
+
+mlflow:
+  tracking_uri: sqlite:///mlflow.db
+  experiment_name: fraudguard-baselines

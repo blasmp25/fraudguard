@@ -34,9 +34,24 @@ class SplitConfig(BaseModel):
         return self
 
 
+class MlflowConfig(BaseModel):
+    tracking_uri: str = "sqlite:///mlflow.db"
+    experiment_name: str = "fraudguard"
+
+    @field_validator("tracking_uri")
+    @classmethod
+    def make_sqlite_path_absolute(cls, value: str) -> str:
+        """Anchor relative SQLite paths at the project root (so notebooks find the same DB)."""
+        prefix = "sqlite:///"
+        if value.startswith(prefix) and not Path(value[len(prefix) :]).is_absolute():
+            return prefix + (PROJECT_ROOT / value[len(prefix) :]).as_posix()
+        return value
+
+
 class Settings(BaseModel):
     data: DataConfig
     split: SplitConfig
+    mlflow: MlflowConfig = MlflowConfig()
     seed: int = 42
 
 
