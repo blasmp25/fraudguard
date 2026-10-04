@@ -8,7 +8,7 @@
 ## Status
 
 - [x] Phase 0 — Project skeleton, tooling (uv, ruff, mypy, pre-commit, pytest)
-- [ ] Phase 1 — Data, temporal split, baselines tracked in MLflow
+- [X] Phase 1 — Data, temporal split, baselines tracked in MLflow
 - [ ] Phase 2 — FastAPI service, Docker, CI (**MVP**)
 - [ ] Phase 3 — Imbalance-handling study (SMOTE variants, class weights, undersampling)
 - [ ] Phase 4 — Deployment on GCP (Cloud Run, BigQuery, Cloud Storage)
