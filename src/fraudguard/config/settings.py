@@ -37,6 +37,8 @@ class SplitConfig(BaseModel):
 class MlflowConfig(BaseModel):
     tracking_uri: str = "sqlite:///mlflow.db"
     experiment_name: str = "fraudguard"
+    registered_model: str = "fraudguard"
+    serving_alias: str = "champion"
 
     @field_validator("tracking_uri")
     @classmethod
