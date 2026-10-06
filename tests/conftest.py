@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -22,9 +24,11 @@ class FakeModel:
         return np.column_stack([1 - p, p])
 
 
-def make_client(probability: float = 0.9, threshold: float = 0.2) -> TestClient:
+def build_client(
+    probability: float = 0.9, threshold: float = 0.2, model: object | None = None
+) -> TestClient:
     service = ModelService(
-        model=FakeModel(probability),
+        model=model or FakeModel(probability),  # type: ignore[arg-type]
         spec=API_SPEC,
         name="fraudguard",
         alias="champion",
@@ -36,4 +40,10 @@ def make_client(probability: float = 0.9, threshold: float = 0.2) -> TestClient:
 
 @pytest.fixture
 def client() -> TestClient:
-    return make_client()
+    return build_client()
+
+
+@pytest.fixture
+def client_factory() -> Callable[..., TestClient]:
+    """Lets a test build a client with its own probability, threshold or model."""
+    return build_client

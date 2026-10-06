@@ -1,12 +1,28 @@
-"""FastAPI application. It receives an already-loaded model (see main.py)."""
+"""FastAPI application. It receives an already-loaded model (see main.py).
 
-from __future__ import annotations
+Note: no `from __future__ import annotations` here. FastAPI reads the type
+annotations at runtime to know what to validate, and the request schema is
+built inside create_app from the served model's features.
+"""
 
-from fastapi import FastAPI
+import logging
+from typing import Any, cast
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 from fraudguard import __version__
 from fraudguard.api.model_service import ModelService
-from fraudguard.api.schemas import Health, ModelInfo
+from fraudguard.api.schemas import (
+    MAX_BATCH_SIZE,
+    Health,
+    ModelInfo,
+    Prediction,
+    build_transaction_model,
+)
+from fraudguard.api.scoring import score
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(service: ModelService) -> FastAPI:
@@ -15,6 +31,15 @@ def create_app(service: ModelService) -> FastAPI:
         version=__version__,
         description="Real-time fraud scoring API",
     )
+    # A class built at runtime from the served model's features, hence CapWords
+    Transaction = build_transaction_model(service.spec)  # noqa: N806
+
+    def score_or_500(records: list[dict[str, Any]]) -> list[Prediction]:
+        try:
+            return score(service, records)
+        except Exception:
+            logger.exception("Scoring failed")  # full details stay in our logs
+            raise HTTPException(status_code=500, detail="Model failed to score") from None
 
     @app.get("/health", response_model=Health)
     def health() -> Health:
@@ -31,5 +56,19 @@ def create_app(service: ModelService) -> FastAPI:
             threshold=service.threshold,
             features=service.feature_names,
         )
+
+    @app.post("/predict", response_model=Prediction)
+    def predict(tx: Transaction) -> Prediction:  # type: ignore[valid-type]
+        """Score one transaction."""
+        return score_or_500([cast(BaseModel, tx).model_dump()])[0]
+
+    @app.post("/predict/batch", response_model=list[Prediction])
+    def predict_batch(txs: list[Transaction]) -> list[Prediction]:  # type: ignore[valid-type]
+        """Score up to MAX_BATCH_SIZE transactions; output order matches input order."""
+        if not 1 <= len(txs) <= MAX_BATCH_SIZE:
+            raise HTTPException(
+                status_code=422, detail=f"Batch size must be between 1 and {MAX_BATCH_SIZE}"
+            )
+        return score_or_500([cast(BaseModel, t).model_dump() for t in txs])
 
     return app
