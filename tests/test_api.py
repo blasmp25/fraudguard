@@ -88,3 +88,35 @@ def test_model_errors_return_generic_500(
     response = client_factory(model=model).post("/predict", json=TX)
     assert response.status_code == 500
     assert "internal detail" not in response.text
+
+
+class RecordingLogger:
+    def __init__(self) -> None:
+        self.records: list = []
+
+    def log(self, records: list) -> None:
+        self.records.extend(records)
+
+
+class BrokenLogger:
+    def log(self, records: list) -> None:
+        raise RuntimeError("database is down")
+
+
+def test_every_prediction_is_logged_with_its_input(
+    client_factory: Callable[..., TestClient],
+) -> None:
+    recorder = RecordingLogger()
+    batch = [{**TX, "transaction_id": i} for i in range(3)]
+    body = client_factory(prediction_logger=recorder).post("/predict/batch", json=batch).json()
+
+    assert [r.request_id for r in recorder.records] == [p["request_id"] for p in body]
+    assert [r.features["transaction_id"] for r in recorder.records] == [0, 1, 2]
+    assert all(r.model_version == "7" for r in recorder.records)
+
+
+def test_logging_failure_does_not_break_prediction(
+    client_factory: Callable[..., TestClient],
+) -> None:
+    response = client_factory(prediction_logger=BrokenLogger()).post("/predict", json=TX)
+    assert response.status_code == 200

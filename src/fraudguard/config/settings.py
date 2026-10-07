@@ -50,10 +50,20 @@ class MlflowConfig(BaseModel):
         return value
 
 
+class ServingConfig(BaseModel):
+    predictions_db: Path = Path("data/predictions.db")
+
+    @field_validator("predictions_db")
+    @classmethod
+    def make_absolute(cls, value: Path) -> Path:
+        return value if value.is_absolute() else PROJECT_ROOT / value
+
+
 class Settings(BaseModel):
     data: DataConfig
     split: SplitConfig
     mlflow: MlflowConfig = MlflowConfig()
+    serving: ServingConfig = ServingConfig()
     seed: int = 42
 
 

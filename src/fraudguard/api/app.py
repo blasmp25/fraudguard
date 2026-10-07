@@ -8,11 +8,12 @@ built inside create_app from the served model's features.
 import logging
 from typing import Any, cast
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel
 
 from fraudguard import __version__
 from fraudguard.api.model_service import ModelService
+from fraudguard.api.prediction_log import PredictionLogger, build_records, log_safely
 from fraudguard.api.schemas import (
     MAX_BATCH_SIZE,
     Health,
@@ -25,7 +26,7 @@ from fraudguard.api.scoring import score
 logger = logging.getLogger(__name__)
 
 
-def create_app(service: ModelService) -> FastAPI:
+def create_app(service: ModelService, prediction_logger: PredictionLogger) -> FastAPI:
     app = FastAPI(
         title="FraudGuard",
         version=__version__,
@@ -58,17 +59,25 @@ def create_app(service: ModelService) -> FastAPI:
         )
 
     @app.post("/predict", response_model=Prediction)
-    def predict(tx: Transaction) -> Prediction:  # type: ignore[valid-type]
+    def predict(tx: Transaction, tasks: BackgroundTasks) -> Prediction:  # type: ignore[valid-type]
         """Score one transaction."""
-        return score_or_500([cast(BaseModel, tx).model_dump()])[0]
+        inputs = [cast(BaseModel, tx).model_dump()]
+        predictions = score_or_500(inputs)
+        records = build_records(predictions, inputs, service.name)
+        tasks.add_task(log_safely, prediction_logger, records)
+        return predictions[0]
 
     @app.post("/predict/batch", response_model=list[Prediction])
-    def predict_batch(txs: list[Transaction]) -> list[Prediction]:  # type: ignore[valid-type]
+    def predict_batch(txs: list[Transaction], tasks: BackgroundTasks) -> list[Prediction]:  # type: ignore[valid-type]
         """Score up to MAX_BATCH_SIZE transactions; output order matches input order."""
         if not 1 <= len(txs) <= MAX_BATCH_SIZE:
             raise HTTPException(
                 status_code=422, detail=f"Batch size must be between 1 and {MAX_BATCH_SIZE}"
             )
-        return score_or_500([cast(BaseModel, t).model_dump() for t in txs])
+        inputs = [cast(BaseModel, t).model_dump() for t in txs]
+        predictions = score_or_500(inputs)
+        records = build_records(predictions, inputs, service.name)
+        tasks.add_task(log_safely, prediction_logger, records)
+        return predictions
 
     return app

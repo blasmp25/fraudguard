@@ -24,8 +24,21 @@ class FakeModel:
         return np.column_stack([1 - p, p])
 
 
+class InMemoryPredictionLogger:
+    """Stands in for the database: keeps logged records in a list."""
+
+    def __init__(self) -> None:
+        self.records: list[object] = []
+
+    def log(self, records: list[object]) -> None:
+        self.records.extend(records)
+
+
 def build_client(
-    probability: float = 0.9, threshold: float = 0.2, model: object | None = None
+    probability: float = 0.9,
+    threshold: float = 0.2,
+    model: object | None = None,
+    prediction_logger: object | None = None,
 ) -> TestClient:
     service = ModelService(
         model=model or FakeModel(probability),  # type: ignore[arg-type]
@@ -35,7 +48,7 @@ def build_client(
         version="7",
         threshold=threshold,
     )
-    return TestClient(create_app(service))
+    return TestClient(create_app(service, prediction_logger or InMemoryPredictionLogger()))  # type: ignore[arg-type]
 
 
 @pytest.fixture
