@@ -52,11 +52,14 @@ class MlflowConfig(BaseModel):
 
 class ServingConfig(BaseModel):
     predictions_db: Path = Path("data/predictions.db")
+    model_dir: Path | None = None  # if set, load an exported model instead of the registry
 
-    @field_validator("predictions_db")
+    @field_validator("predictions_db", "model_dir")
     @classmethod
-    def make_absolute(cls, value: Path) -> Path:
-        return value if value.is_absolute() else PROJECT_ROOT / value
+    def make_absolute(cls, value: Path | None) -> Path | None:
+        if value is None or value.is_absolute():
+            return value
+        return PROJECT_ROOT / value
 
 
 class Settings(BaseModel):

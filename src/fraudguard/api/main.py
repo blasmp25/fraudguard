@@ -7,14 +7,13 @@ Usage (from the repository root):
 from fastapi import FastAPI
 
 from fraudguard.api.app import create_app
-from fraudguard.api.model_service import load_champion
+from fraudguard.api.model_service import load_champion, load_exported
 from fraudguard.api.prediction_log import SQLitePredictionLogger
 from fraudguard.config import load_settings
 
 
 def build_app() -> FastAPI:
     settings = load_settings()
-    return create_app(
-        load_champion(settings),
-        SQLitePredictionLogger(settings.serving.predictions_db),
-    )
+    model_dir = settings.serving.model_dir
+    service = load_exported(model_dir) if model_dir else load_champion(settings)
+    return create_app(service, SQLitePredictionLogger(settings.serving.predictions_db))

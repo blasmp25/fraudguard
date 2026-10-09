@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
+import joblib
 import mlflow
 import mlflow.sklearn
 import numpy as np
@@ -49,4 +52,31 @@ def load_champion(settings: Settings) -> ModelService:
         alias=cfg.serving_alias,
         version=str(version.version),
         threshold=float(version.tags["threshold"]),
+    )
+
+
+def export_model(service: ModelService, out_dir: Path) -> None:
+    """Write the served model and its metadata to a folder, for packaging in an image."""
+    out_dir.mkdir(parents=True, exist_ok=True)
+    joblib.dump(service.model, out_dir / "model.joblib")
+    metadata = {
+        "name": service.name,
+        "alias": service.alias,
+        "version": service.version,
+        "threshold": service.threshold,
+    }
+    (out_dir / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+
+def load_exported(model_dir: Path) -> ModelService:
+    """Load a model exported with export_model (no MLflow registry needed)."""
+    metadata = json.loads((model_dir / "metadata.json").read_text(encoding="utf-8"))
+    model = joblib.load(model_dir / "model.joblib")
+    return ModelService(
+        model=model,
+        spec=model.named_steps["prep"].spec,
+        name=metadata["name"],
+        alias=metadata["alias"],
+        version=str(metadata["version"]),
+        threshold=float(metadata["threshold"]),
     )
