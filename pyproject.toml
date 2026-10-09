@@ -9,18 +9,14 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.141.1",
-    "imbalanced-learn>=0.14.2",
     "lightgbm>=4.7.0",
-    "mlflow>=3.16.1",
     "numpy>=2.4.6",
     "pandas>=3.0.6",
-    "pyarrow>=25.0.1",
     "pydantic>=2.13.5",
     "pydantic-settings>=2.15.0",
     "pyyaml>=6.0.3",
     "scikit-learn>=1.9.1",
     "uvicorn>=0.54.0",
-    "xgboost>=3.2.0",
 ]
 
 [build-system]
@@ -39,6 +35,12 @@ dev = [
     "pytest-cov>=7.1.0",
     "ruff>=0.16.9",
     "types-pyyaml>=6.0.12.20260906",
+]
+train = [
+    "imbalanced-learn>=0.14.2",
+    "mlflow>=3.17.0",
+    "pyarrow>=25.0.1",
+    "xgboost>=3.2.0",
 ]
 
 [tool.ruff]
@@ -61,3 +63,6 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.uv]
+default-groups = ["dev", "train"]

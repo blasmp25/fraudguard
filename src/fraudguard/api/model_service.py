@@ -8,8 +8,6 @@ from pathlib import Path
 from typing import Protocol
 
 import joblib
-import mlflow
-import mlflow.sklearn
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
@@ -38,6 +36,9 @@ class ModelService:
 
 def load_champion(settings: Settings) -> ModelService:
     """Resolve the alias to a version once, then load that exact version and its threshold."""
+    import mlflow
+    import mlflow.sklearn  # lazy: only needed when loading from the registry (not in the image)
+
     cfg = settings.mlflow
     mlflow.set_tracking_uri(cfg.tracking_uri)
     client = mlflow.MlflowClient()

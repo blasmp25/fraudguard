@@ -6,11 +6,11 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
 # Dependencies first: this layer is cached until uv.lock changes
 COPY pyproject.toml uv.lock README.md ./
-RUN uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-default-groups --no-install-project
 
 # Then the project itself
 COPY src ./src
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-default-groups
 
 # ---------- Stage 2: minimal runtime image ----------
 FROM python:3.11-slim AS runtime
