@@ -6,6 +6,11 @@ split:
   train_end_day: 120
   valid_end_day: 150
 
+cv:
+  valid_starts: [60, 90, 120]
+  valid_days: 30
+  gap_days: 7
+
 seed: 42
 
 mlflow:

@@ -1,8 +1,9 @@
 import pandas as pd
 import pytest
+from pydantic import ValidationError
 
-from fraudguard.config.settings import SplitConfig
-from fraudguard.data.split import SECONDS_PER_DAY, temporal_split
+from fraudguard.config.settings import CvConfig, Settings, SplitConfig
+from fraudguard.data.split import SECONDS_PER_DAY, temporal_folds, temporal_split
 
 
 @pytest.fixture
@@ -44,3 +45,44 @@ def test_boundary_day_goes_to_later_set(df: pd.DataFrame) -> None:
     split = temporal_split(df, CFG)
     assert 120 in set(split.valid["TransactionID"])
     assert 150 in set(split.future["TransactionID"])
+
+
+CV = CvConfig(valid_starts=[60, 90, 120], valid_days=30, gap_days=7)
+
+
+def days_of(part: pd.DataFrame) -> pd.Series:
+    return part["TransactionDT"] // SECONDS_PER_DAY
+
+
+def test_folds_match_protocol(df: pd.DataFrame) -> None:
+    folds = temporal_folds(df, CV)
+    assert [
+        (days_of(f.train).max(), days_of(f.valid).min(), days_of(f.valid).max()) for f in folds
+    ] == [(52, 60, 89), (82, 90, 119), (112, 120, 149)]
+
+
+def test_gap_separates_train_and_valid(df: pd.DataFrame) -> None:
+    for f in temporal_folds(df, CV):
+        assert days_of(f.valid).min() - days_of(f.train).max() > CV.gap_days
+
+
+def test_training_windows_expand(df: pd.DataFrame) -> None:
+    folds = temporal_folds(df, CV)
+    for earlier, later in zip(folds, folds[1:], strict=False):
+        assert set(earlier.train["TransactionID"]) < set(later.train["TransactionID"])
+
+
+def test_folds_never_use_future_set(df: pd.DataFrame) -> None:
+    for f in temporal_folds(df, CV):
+        assert days_of(f.valid).max() < 150
+
+
+def test_config_rejects_folds_reaching_future() -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate(
+            {
+                "data": {"raw_dir": "data/raw", "processed_dir": "data/processed"},
+                "split": {"train_end_day": 120, "valid_end_day": 150},
+                "cv": {"valid_starts": [60, 90, 130], "valid_days": 30, "gap_days": 7},
+            }
+        )

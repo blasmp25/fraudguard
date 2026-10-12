@@ -34,6 +34,25 @@ class SplitConfig(BaseModel):
         return self
 
 
+class CvConfig(BaseModel):
+    """Expanding-window temporal folds: validation windows start at valid_starts."""
+
+    valid_starts: list[int] = [60, 90, 120]
+    valid_days: int = 30
+    gap_days: int = 7
+
+    @model_validator(mode="after")
+    def check_windows(self) -> CvConfig:
+        starts = self.valid_starts
+        if not starts or any(b <= a for a, b in zip(starts, starts[1:], strict=False)):
+            raise ValueError("valid_starts must be non-empty and strictly increasing")
+        if self.valid_days <= 0 or self.gap_days < 0:
+            raise ValueError("valid_days must be > 0 and gap_days >= 0")
+        if starts[0] - self.gap_days <= 1:
+            raise ValueError("The first fold would have no training data")
+        return self
+
+
 class MlflowConfig(BaseModel):
     tracking_uri: str = "sqlite:///mlflow.db"
     experiment_name: str = "fraudguard"
@@ -65,9 +84,20 @@ class ServingConfig(BaseModel):
 class Settings(BaseModel):
     data: DataConfig
     split: SplitConfig
+    cv: CvConfig = CvConfig()
     mlflow: MlflowConfig = MlflowConfig()
     serving: ServingConfig = ServingConfig()
     seed: int = 42
+
+    @model_validator(mode="after")
+    def folds_never_touch_future(self) -> Settings:
+        last_valid_end = self.cv.valid_starts[-1] + self.cv.valid_days
+        if last_valid_end > self.split.valid_end_day:
+            raise ValueError(
+                f"CV folds reach day {last_valid_end}, beyond valid_end_day "
+                f"{self.split.valid_end_day}: they would use the future set"
+            )
+        return self
 
 
 def load_settings(path: Path | str | None = None) -> Settings:
